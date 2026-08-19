@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>podjump — podman jump-server lab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css" />
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  body { background: radial-gradient(1200px 600px at 20% -10%, #1e293b55, transparent), #020617; }
+  .card { background: #0b1220; border: 1px solid #1e293b; }
+  .xterm { height: 100%; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 8px; }
+</style>
+</head>
+<body class="text-slate-200 min-h-screen font-sans">
+<header class="border-b border-slate-800/80 bg-slate-950/60 backdrop-blur sticky top-0 z-20">
+  <div class="max-w-6xl mx-auto px-5 py-3 flex items-center gap-4">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">🐧</span>
+      <div>
+        <h1 class="text-lg font-semibold tracking-tight text-white">podjump</h1>
+        <p class="text-[11px] text-slate-400 -mt-1">podman jump-server lab · localhost only</p>
+      </div>
+    </div>
+    <div id="health" class="ml-auto flex items-center gap-2 text-xs">
+      <span id="health-dot" class="w-2.5 h-2.5 rounded-full bg-slate-600"></span>
+      <span id="health-text" class="text-slate-400">checking podman…</span>
+      <button id="btn-build" class="ml-2 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Build base image</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-5 py-6 space-y-6">
+  <div id="token-banner" class="hidden rounded-lg border border-amber-700/50 bg-amber-950/40 text-amber-200 text-sm px-4 py-3"></div>
+
+  <!-- New server -->
+  <section class="card rounded-xl p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">New server</h2>
+      <span class="text-xs text-slate-500">one container = one server on <code id="net" class="text-slate-400"></code></span>
+    </div>
+    <form id="create-form" class="grid grid-cols-1 md:grid-cols-6 gap-3">
+      <label class="md:col-span-2 flex flex-col gap-1 text-xs text-slate-400">
+        Name
+        <input name="name" required placeholder="web-1" class="inp" />
+      </label>
+      <label class="md:col-span-4 flex flex-col gap-1 text-xs text-slate-400">
+        Image <span class="text-slate-600">(default: latest Ubuntu + sshd)</span>
+        <input name="image" id="f-image" placeholder="podjump/server-ubuntu:latest" class="inp" />
+      </label>
+      <label class="md:col-span-2 flex flex-col gap-1 text-xs text-slate-400">
+        Env vars <span class="text-slate-600">(one KEY=value per line)</span>
+        <textarea name="env" rows="2" placeholder="FOO=bar" class="inp font-mono"></textarea>
+      </label>
+      <label class="md:col-span-2 flex flex-col gap-1 text-xs text-slate-400">
+        Volumes <span class="text-slate-600">(one host:container per line)</span>
+        <textarea name="volumes" rows="2" placeholder="/tmp/data:/data" class="inp font-mono"></textarea>
+      </label>
+      <div class="md:col-span-2 grid grid-cols-3 gap-3">
+        <label class="flex flex-col gap-1 text-xs text-slate-400">CPU<input name="cpu" placeholder="1" class="inp" /></label>
+        <label class="flex flex-col gap-1 text-xs text-slate-400">Memory<input name="memory" placeholder="512m" class="inp" /></label>
+        <label class="flex flex-col gap-1 text-xs text-slate-400">SSH port<input name="ssh_host_port" type="number" placeholder="auto" class="inp" /></label>
+      </div>
+      <div class="md:col-span-6 flex items-center gap-3">
+        <button type="submit" class="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium">Create &amp; start</button>
+        <span class="text-xs text-slate-500">First create with the default image builds it once (~minute).</span>
+      </div>
+    </form>
+  </section>
+
+  <!-- Servers -->
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider">Servers</h2>
+      <button onclick="refresh()" class="text-xs text-slate-400 hover:text-slate-200">↻ refresh</button>
+    </div>
+    <div id="servers" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- Jump-server flow -->
+  <section class="card rounded-xl p-5">
+    <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-1">Jump-server flow</h2>
+    <p class="text-xs text-slate-500 mb-4">Generate a root key pair on the jump server, push its public key to the targets, then verify a passwordless hop from jump → target.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+      <label class="flex flex-col gap-1 text-xs text-slate-400">
+        Jump server
+        <select id="jump-sel" class="inp"></select>
+      </label>
+      <div class="md:col-span-2">
+        <div class="text-xs text-slate-400 mb-1">Targets (receive the public key)</div>
+        <div id="target-sels" class="flex flex-wrap gap-2"></div>
+      </div>
+    </div>
+    <div class="mt-4 flex items-center gap-3">
+      <button onclick="doPush()" class="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium">Push key to targets</button>
+      <pre id="push-result" class="hidden text-xs text-emerald-300 bg-slate-900/60 border border-slate-800 rounded-md p-3 overflow-auto"></pre>
+    </div>
+  </section>
+</main>
+
+<!-- Modal -->
+<div id="modal" class="hidden fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+  <div class="card rounded-xl w-full max-w-3xl h-[80vh] flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2 border-b border-slate-800">
+      <span id="modal-title" class="text-sm text-slate-300"></span>
+      <button onclick="closeModal()" class="text-slate-400 hover:text-white">✕</button>
+    </div>
+    <div id="modal-body" class="flex-1 overflow-auto p-3 bg-[#020617]"></div>
+  </div>
+</div>
+
+<div id="toast" class="hidden fixed bottom-4 right-4 z-50 rounded-md bg-rose-700 text-white text-sm px-4 py-2 shadow-lg"></div>
+
+<style>
+.inp{background:#0b1220;border:1px solid #1e293b;border-radius:8px;padding:8px 10px;font-size:13px;color:#e2e8f0;outline:none;width:100%}.inp:focus{border-color:#334155}
+.btn{background:#0b1220;border:1px solid #1e293b;border-radius:8px;padding:6px 10px;color:#e2e8f0}
+.btn:hover{background:#111a2e;border-color:#334155}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-danger:hover{background:#3f1d1d;border-color:#7f1d1d;color:#fecaca}
+select.inp{width:auto;min-width:10rem}
+</style>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token');
+let servers = [];
+let term = null, ws = null, decoder = null;
+
+function buildUrl(path) {
+  if (!TOKEN) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return path + sep + 'token=' + encodeURIComponent(TOKEN);
+}
+async function api(path, opts = {}) {
+  opts.headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  const res = await fetch(buildUrl(path), opts);
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { const j = await res.json(); detail = j.detail || detail; } catch {}
+    if (res.status === 401) showTokenBanner();
+    throw new Error(detail);
+  }
+  return res.json();
+}
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 3500); }
+function showTokenBanner(){ const b=document.getElementById('token-banner'); b.classList.remove('hidden'); b.innerHTML='This UI requires a token. Reload with <code>?token=…</code> (see PODJUMP_TOKEN).'; }
+function parseLines(v){ return (v||'').split('\n').map(x=>x.trim()).filter(Boolean); }
+
+async function refresh() {
+  try {
+    const r = await api('/api/servers'); servers = r.servers || [];
+    render();
+  } catch (e) { toast('refresh failed: ' + e.message); }
+}
+function stateDot(s){
+  const c = s==='running' ? 'bg-emerald-500' : s==='exited' ? 'bg-rose-500' : 'bg-amber-500';
+  return `<span class="inline-block w-2 h-2 rounded-full ${c}"></span>`;
+}
+function render() {
+  const grid = document.getElementById('servers');
+  if (!servers.length) { grid.innerHTML = '<p class="text-slate-500 text-sm col-span-full">No servers yet. Create one above.</p>'; }
+  else {
+    grid.innerHTML = servers.map(s => `
+      <div class="card rounded-xl p-4 flex flex-col gap-3">
+        <div class="flex items-center gap-2">
+          ${stateDot(s.state)}
+          <span class="font-semibold text-white">${esc(s.name)}</span>
+          <span class="ml-auto text-[11px] text-slate-500">${esc(s.state)}</span>
+        </div>
+        <div class="text-xs text-slate-400 space-y-1">
+          <div>image: <code class="text-slate-300">${esc(s.image || '?')}</code></div>
+          <div>ip: <span class="text-slate-300">${esc(s.ip || '—')}</span></div>
+          <div>ssh: <button class="text-emerald-400 hover:underline" onclick='copy(`ssh root@127.0.0.1 -p ${s.ssh_host_port}`)' title="copy">root@127.0.0.1:${esc(s.ssh_host_port || '—')}</button></div>
+        </div>
+        <div class="flex flex-wrap gap-2 mt-auto text-xs">
+          ${s.state==='running'
+            ? `<button onclick="act('${s.name}','stop')" class="btn">⏹ stop</button>`
+            : `<button onclick="act('${s.name}','start')" class="btn">▶ start</button>`}
+          <button onclick="openTerm('${s.name}')" ${s.state!=='running'?'disabled':''} class="btn">⌨ terminal</button>
+          <button onclick="openLogs('${s.name}')" class="btn">≡ logs</button>
+          <button onclick="keygen('${s.name}')" ${s.state!=='running'?'disabled':''} class="btn">🔑 keygen</button>
+          <button onclick="del('${s.name}')" class="btn btn-danger">🗑 delete</button>
+        </div>
+      </div>`).join('');
+  }
+  // jump selectors
+  const jumpSel = document.getElementById('jump-sel');
+  const running = servers.filter(s=>s.state==='running').map(s=>s.name);
+  jumpSel.innerHTML = running.length ? running.map(n=>`<option>${esc(n)}</option>`).join('') : '<option value="">(none running)</option>';
+  document.getElementById('target-sels').innerHTML = running
+    .map(n=>`<label class="flex items-center gap-1 text-xs text-slate-300 bg-slate-800/60 border border-slate-700 rounded-md px-2 py-1"><input type="checkbox" class="target" value="${esc(n)}"> ${esc(n)}</label>`).join('')
+    || '<span class="text-xs text-slate-500">no running servers</span>';
+}
+async function act(name, action){ try { await api(`/api/servers/${name}/${action}`, {method:'POST'}); refresh(); } catch(e){ toast(e.message);} }
+async function del(name){ if(!confirm(`Delete server "${name}"? This removes the container.`)) return; try{ await api(`/api/servers/${name}`,{method:'DELETE'}); refresh(); }catch(e){toast(e.message);} }
+async function keygen(name){ try{ const r=await api(`/api/servers/${name}/keygen`,{method:'POST'}); openPre(`keygen · ${name}`, r.public_key); }catch(e){toast(e.message);} }
+async function doPush(){
+  const jump=document.getElementById('jump-sel').value;
+  const targets=[...document.querySelectorAll('.target:checked')].map(x=>x.value);
+  if(!jump) return toast('pick a jump server'); if(!targets.length) return toast('pick at least one target');
+  try{ const r=await api('/api/servers/push',{method:'POST',body:JSON.stringify({jump,targets})});
+    const pre=document.getElementById('push-result'); pre.classList.remove('hidden');
+    pre.textContent = 'public key:\n' + r.public_key + '\n\n' + r.results.map(x=>`  ${x.target}: ${x.key_pushed?'key pushed':'push FAILED'} ${x.verified?'· verified':'· NOT verified'} ${x.detail?'('+x.detail+')':''}`).join('\n');
+  }catch(e){toast(e.message);}
+}
+function copy(t){ navigator.clipboard?.writeText(t); toast('copied: ' + t); }
+
+function openModal(title){ document.getElementById('modal-title').textContent=title; document.getElementById('modal-body').innerHTML=''; document.getElementById('modal').classList.remove('hidden'); }
+function closeModal(){ document.getElementById('modal').classList.add('hidden'); if(ws){ws.close();ws=null;} if(term){term.dispose();term=null;} }
+function openPre(title, text){ openModal(title); const pre=document.createElement('pre'); pre.className='text-xs text-emerald-300 whitespace-pre-wrap'; pre.textContent=text; document.getElementById('modal-body').appendChild(pre); }
+async function openLogs(name){ try{ openModal('logs · '+name); const r=await api(`/api/servers/${name}/logs?lines=300`); const pre=document.createElement('pre'); pre.className='text-xs text-slate-300 whitespace-pre-wrap'; pre.textContent=r.logs; document.getElementById('modal-body').appendChild(pre);}catch(e){toast(e.message);closeModal();} }
+
+async function openTerm(name){
+  if (typeof window.Terminal === 'undefined') { return toast('terminal assets failed to load (offline?) — use a local ssh instead'); }
+  openModal('terminal · '+name);
+  const body=document.getElementById('modal-body');
+  const host=document.createElement('div'); host.id='term-host'; host.style.height='100%'; body.appendChild(host);
+  term = new window.Terminal({ fontFamily:'ui-monospace, Menlo, monospace', fontSize:13, cursorBlink:true, theme:{ background:'#020617' } });
+  const fit = window.FitAddon ? new window.FitAddon.FitAddon() : null;
+  if (fit) term.loadAddon(fit);
+  term.open(host); fit && fit.fit();
+  decoder = new TextDecoder('utf-8');
+  const proto = location.protocol==='https:'?'wss':'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/terminal/${name}${TOKEN?`?token=${encodeURIComponent(TOKEN)}`:''}`);
+  ws.binaryType='arraybuffer';
+  ws.onopen=()=>{ term.focus(); fit&&fit.fit(); sendResize(); };
+  ws.onmessage=(e)=>{ const s = e.data instanceof ArrayBuffer ? decoder.decode(new Uint8Array(e.data), {stream:true}) : e.data; term.write(s); };
+  ws.onclose=()=>{ term.write('\r\n\x1b[90m[disconnected]\x1b[0m\r\n'); };
+  term.onData(d=>{ if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'in',d})); });
+  term.onResize(s=>sendResize(s));
+  window.addEventListener('resize', onWinResize);
+  function sendResize(s){ s=s||term.cols/term.rows; if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'resize',cols:term.cols,rows:term.rows})); }
+}
+function onWinResize(){ if(fit&&term) fit.fit(); if(ws&&ws.readyState===1) ws.send(JSON.stringify({t:'resize',cols:term.cols,rows:term.rows})); }
+
+document.getElementById('create-form').addEventListener('submit', async (e)=>{
+  e.preventDefault(); const f=e.target;
+  const body={ name:f.name.value.trim(), image:f.image.value.trim()||undefined,
+    env: Object.fromEntries(parseLines(f.env.value).map(l=>{const i=l.indexOf('=');return i>0?[l.slice(0,i),l.slice(i+1)]:[l,''];})),
+    volumes: parseLines(f.volumes.value),
+    cpu:f.cpu.value.trim()||undefined, memory:f.memory.value.trim()||undefined,
+    ssh_host_port:f.ssh_host_port.value?Number(f.ssh_host_port.value):undefined, start:true };
+  try { await api('/api/servers',{method:'POST',body:JSON.stringify(body)}); f.reset(); refresh(); }
+  catch(err){ toast('create failed: '+err.message); }
+});
+document.getElementById('btn-build').addEventListener('click', async ()=>{
+  toast('building base image (this can take a while)…');
+  try { await api('/api/image/build',{method:'POST'}); toast('base image built'); await imageStatus(); }
+  catch(e){ toast('build failed: '+e.message); }
+});
+async function imageStatus(){ try{ const r=await api('/api/image'); const t=document.getElementById('health-text'); t.textContent = `podman ok · base image ${r.exists?'ready':'not built'}`; document.getElementById('health-dot').className='w-2.5 h-2.5 rounded-full '+(r.ok??true?'bg-emerald-500':'bg-rose-500'); }catch{} }
+async function health(){ try{ const r=await api('/api/health'); document.getElementById('health-dot').className='w-2.5 h-2.5 rounded-full '+(r.ok?'bg-emerald-500':'bg-rose-500'); document.getElementById('health-text').textContent=r.ok?'podman ready':('podman: '+r.error); document.getElementById('net').textContent=r.network; }catch(e){ showTokenBanner(); } imageStatus(); }
+document.getElementById('net').textContent = 'podjump-net';
+refresh(); health(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>

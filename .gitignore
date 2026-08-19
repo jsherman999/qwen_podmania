@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# PyInstaller
+*.spec
+*.pyz
+release/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local runtime artifacts
+*.log
+*.pid

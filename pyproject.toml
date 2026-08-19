@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qwen-podmania"
+version = "0.1.0"
+description = "Podman control plane: a stylish localhost web UI + CLI to run multiple Ubuntu SSH servers in a shared jump-server topology. No external API surface."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Jay Sherman", email = "jsherman999@gmail.com" }]
+keywords = ["podman", "containers", "ssh", "jump-server", "bastion", "cli", "web"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "typer>=0.12",
+    "pydantic>=2.7",
+]
+
+[project.optional-dependencies]
+# Extra deps used only if you package a single distributable binary.
+package = ["pyinstaller>=6.6"]
+
+[project.scripts]
+podjump = "podjump.cli:app"
+
+[tool.setuptools]
+packages = [
+    "podjump",
+    "podjump.web",
+    "podjump.web.static",
+]
+
+[tool.setuptools.package-data]
+"podjump.web" = ["static/**"]
