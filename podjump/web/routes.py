@@ -225,7 +225,7 @@ def create_app() -> FastAPI:
     return app
 
 
-def run(host: str = "127.0.0.1", port: int = 8080, open_browser: bool = False) -> None:
+def run(host: str = "127.0.0.1", port: int = 9090, open_browser: bool = False) -> None:
     import webbrowser
 
     import uvicorn

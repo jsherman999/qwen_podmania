@@ -49,7 +49,7 @@ podjump build
 ## Web UI
 
 ```bash
-podjump web --open            # http://127.0.0.1:8080
+podjump web --open            # http://127.0.0.1:9090
 PODJUMP_TOKEN=secret podjump web   # require ?token=secret
 ```
 

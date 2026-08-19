@@ -207,7 +207,7 @@ def logs(name: str = typer.Argument(...), lines: int = typer.Option(200, "--line
 @app.command()
 def web(
     host: str = typer.Option("127.0.0.1", "--host", help="bind address (keep localhost for no public surface)"),
-    port: int = typer.Option(8080, "--port", "-p"),
+    port: int = typer.Option(9090, "--port", "-p"),
     open_browser: bool = typer.Option(False, "--open"),
 ) -> None:
     """Run the local web UI."""
