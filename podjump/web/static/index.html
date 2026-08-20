@@ -9,7 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: dark; font-size: 17px; }
   body { background: radial-gradient(1200px 600px at 20% -10%, #1e293b55, transparent), #020617; }
   .card { background: #0b1220; border: 1px solid #1e293b; }
   .xterm { height: 100%; }
@@ -175,7 +175,7 @@ function render() {
         <div class="text-xs text-slate-400 space-y-1">
           <div>image: <code class="text-slate-300">${esc(s.image || '?')}</code></div>
           <div>ip: <span class="text-slate-300">${esc(s.ip || '—')}</span></div>
-          <div>ssh: <button class="text-emerald-400 hover:underline" onclick='copy(`ssh root@127.0.0.1 -p ${s.ssh_host_port}`)' title="copy">root@127.0.0.1:${esc(s.ssh_host_port || '—')}</button></div>
+          <div>ssh: <button class="text-emerald-400 hover:underline" data-cmd="ssh root@127.0.0.1 -p ${s.ssh_host_port}" onclick="copyCmd(this)" title="copy">root@127.0.0.1:${esc(s.ssh_host_port || '—')}</button></div>
         </div>
         <div class="flex flex-wrap gap-2 mt-auto text-xs">
           ${s.state==='running'
@@ -209,6 +209,7 @@ async function doPush(){
   }catch(e){toast(e.message);}
 }
 function copy(t){ navigator.clipboard?.writeText(t); toast('copied: ' + t); }
+function copyCmd(el){ copy(el.getAttribute('data-cmd')); }
 
 function openModal(title){ document.getElementById('modal-title').textContent=title; document.getElementById('modal-body').innerHTML=''; document.getElementById('modal').classList.remove('hidden'); }
 function closeModal(){ document.getElementById('modal').classList.add('hidden'); if(ws){ws.close();ws=null;} if(term){term.dispose();term=null;} }
@@ -220,7 +221,7 @@ async function openTerm(name){
   openModal('terminal · '+name);
   const body=document.getElementById('modal-body');
   const host=document.createElement('div'); host.id='term-host'; host.style.height='100%'; body.appendChild(host);
-  term = new window.Terminal({ fontFamily:'ui-monospace, Menlo, monospace', fontSize:13, cursorBlink:true, theme:{ background:'#020617' } });
+  term = new window.Terminal({ fontFamily:'ui-monospace, Menlo, monospace', fontSize:14, cursorBlink:true, theme:{ background:'#020617' } });
   const fit = window.FitAddon ? new window.FitAddon.FitAddon() : null;
   if (fit) term.loadAddon(fit);
   term.open(host); fit && fit.fit();
