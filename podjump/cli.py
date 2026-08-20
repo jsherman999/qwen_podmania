@@ -206,13 +206,11 @@ def logs(name: str = typer.Argument(...), lines: int = typer.Option(200, "--line
 
 @app.command()
 def web(
-    host: str = typer.Option("127.0.0.1", "--host", help="bind address (keep localhost for no public surface)"),
+    host: str = typer.Option("0.0.0.0", "--host", help="bind address (0.0.0.0 = whole LAN; 127.0.0.1 = this machine only)"),
     port: int = typer.Option(9090, "--port", "-p"),
     open_browser: bool = typer.Option(False, "--open"),
 ) -> None:
-    """Run the local web UI."""
-    if host not in ("127.0.0.1", "localhost", "0.0.0.0", "::1"):
-        typer.secho(f"warning: binding to {host} exposes the UI beyond localhost", fg=typer.colors.YELLOW)
+    """Run the web UI (default: bound to 0.0.0.0, reachable across the LAN)."""
     try:
         webroutes.run(host=host, port=port, open_browser=open_browser)
     except core.PodmanError as exc:

@@ -4,8 +4,8 @@ Run multiple "server" containers (default: latest Ubuntu) that each expose an
 SSH daemon for root. One container can act as the jump/bastion: generate a
 root key pair on it, push its public key to the others, and hop around.
 
-Interfaces: a localhost-only web UI (``podjump web``) and a CLI (``podjump``).
-There is no external API surface.
+Interfaces: a web UI (``podjump web``, bound to your LAN by default) and a CLI
+(``podjump``). There is no external API surface beyond what the UI calls.
 """
 
 __version__ = "0.1.0"

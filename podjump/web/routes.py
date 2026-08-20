@@ -1,8 +1,10 @@
-"""Localhost-only FastAPI app for the podjump web UI.
+"""FastAPI app for the podjump web UI.
 
-There is no public API surface: docs/OpenAPI are disabled, the server binds to
-127.0.0.1 by default, and an optional shared token (PODJUMP_TOKEN) can be
-required. Every endpoint is a thin wrapper over podjump.server.
+No public API surface: docs/OpenAPI are disabled, and the only endpoints are the
+ones the UI calls. By default the server binds to 0.0.0.0 so the lab is
+reachable across your LAN; set PODJUMP_TOKEN to require a shared token
+(strongly recommended when exposing beyond this machine). Every endpoint is a
+thin wrapper over podjump.server.
 """
 from __future__ import annotations
 
@@ -225,12 +227,39 @@ def create_app() -> FastAPI:
     return app
 
 
-def run(host: str = "127.0.0.1", port: int = 9090, open_browser: bool = False) -> None:
+def _lan_ip() -> Optional[str]:
+    """Best-effort IPv4 address of this host's LAN interface (no packets sent)."""
+    import socket
+
+    for target in (("8.8.8.8", 80), ("1.1.1.1", 80)):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(1)
+        try:
+            s.connect(target)
+            return s.getsockname()[0]
+        except OSError:
+            continue
+        finally:
+            s.close()
+    return None
+
+
+def run(host: str = "0.0.0.0", port: int = 9090, open_browser: bool = False) -> None:
     import webbrowser
 
     import uvicorn
 
-    url = f"http://{host}:{port}/"
+    loopback = host in ("127.0.0.1", "localhost", "::1")
+    local_url = f"http://127.0.0.1:{port}/"
+    if loopback:
+        print(f"podjump UI: {local_url}   (localhost only)")
+    else:
+        lan = _lan_ip() or host
+        print(f"podjump UI: http://{lan}:{port}/   (reachable on your LAN; local: {local_url})")
+        if _expected_token():
+            print("  auth: PODJUMP_TOKEN enabled — append ?token=<secret> to the URL")
+        else:
+            print("  !! exposed to your local network with NO auth — set PODJUMP_TOKEN to require a token")
     if open_browser:
-        webbrowser.open(url)
+        webbrowser.open(local_url)
     uvicorn.run(create_app(), host=host, port=port, log_level="info")

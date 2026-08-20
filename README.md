@@ -49,8 +49,9 @@ podjump build
 ## Web UI
 
 ```bash
-podjump web --open            # http://127.0.0.1:9090
-PODJUMP_TOKEN=secret podjump web   # require ?token=secret
+podjump web --open                      # binds 0.0.0.0:9090 — reachable from your LAN
+PODJUMP_TOKEN=secret podjump web --open # require ?token=secret (recommended for LAN)
+podjump web --host 127.0.0.1            # this machine only
 ```
 
 The UI: create/rename/configure servers (env, volumes, CPU, memory, port),
@@ -86,9 +87,11 @@ podjump rm web-1 -y
 
 ## Security notes
 
-- The web server binds to `127.0.0.1` by default; there is no public REST API.
-  Pass `--host` to bind wider (you'll be warned), and set `PODJUMP_TOKEN` to add
-  a shared token.
+- The web server binds to `0.0.0.0` by default, so it is reachable from other
+  machines on your LAN (there is still no public REST API — only the endpoints
+  the UI calls). Use `--host 127.0.0.1` to restrict it to this machine. Because
+  the UI can create/destroy containers and exec as root, set `PODJUMP_TOKEN` and
+  pass `?token=…` when exposing it to the LAN.
 - Containers run root with SSH key auth only (no password). Treat the lab as
   untrusted.
 - State (ports, generated public keys) is stored in `~/.podjump/state.json` —
@@ -106,6 +109,6 @@ podjump/
     server.py           # high-level lifecycle + jump-server orchestration
     cli.py              # Typer CLI
     web/
-      routes.py         # FastAPI app (localhost-only) + PTY websocket terminal
+      routes.py         # FastAPI app (LAN by default) + PTY websocket terminal
       static/index.html # the web UI
 ```
