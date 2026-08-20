@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jay.podjump</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jay/podjump/.venv/bin/podjump</string>
+        <string>web</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jay/podjump</string>
+
+    <!-- Start at login, and restart automatically if it ever exits. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PODJUMP_PODMAN_BIN</key>
+        <string>/opt/homebrew/bin/podman</string>
+        <!-- To require a token on the LAN, uncomment:
+        <key>PODJUMP_TOKEN</key>
+        <string>CHANGE_ME</string>
+        -->
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jay/podjump/logs/podjump-web.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jay/podjump/logs/podjump-web.err.log</string>
+</dict>
+</plist>

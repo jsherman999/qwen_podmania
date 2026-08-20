@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.jay.podjump-machine</string>
+
+    <!-- Uses the app's idempotent `up` command (a no-op if the machine is
+         already running). Calling `podman machine start` directly would exit
+         125 when the machine is already up, which we want to avoid. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/jay/podjump/.venv/bin/podjump</string>
+        <string>up</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/jay/podjump</string>
+
+    <!-- Start once at login; do NOT keep-alive (it's a one-shot bring-up). -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>PODJUMP_PODMAN_BIN</key>
+        <string>/opt/homebrew/bin/podman</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/jay/podjump/logs/podjump-machine.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jay/podjump/logs/podjump-machine.err.log</string>
+</dict>
+</plist>

@@ -24,10 +24,15 @@
       <span class="text-2xl">🐧</span>
       <div>
         <h1 class="text-lg font-semibold tracking-tight text-white">podjump</h1>
-        <p class="text-[11px] text-slate-400 -mt-1">podman jump-server lab · localhost only</p>
+        <p class="text-[11px] text-slate-400 -mt-1">podman jump-server lab</p>
       </div>
     </div>
     <div id="health" class="ml-auto flex items-center gap-2 text-xs">
+      <button id="machine-toggle" title="Master toggle: start/stop the podman machine (the VM running your containers)">
+        <span id="machine-dot" class="inline-block w-2.5 h-2.5 rounded-full bg-slate-600"></span>
+        <span id="machine-label" class="ml-2 text-slate-300">podman: …</span>
+        <span id="machine-action" class="ml-1 text-slate-500"></span>
+      </button>
       <span id="health-dot" class="w-2.5 h-2.5 rounded-full bg-slate-600"></span>
       <span id="health-text" class="text-slate-400">checking podman…</span>
       <button id="btn-build" class="ml-2 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Build base image</button>
@@ -123,6 +128,13 @@
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn-danger:hover{background:#3f1d1d;border-color:#7f1d1d;color:#fecaca}
 select.inp{width:auto;min-width:10rem}
+#machine-toggle{display:inline-flex;align-items:center;padding:6px 10px;border-radius:8px;border:1px solid #1e293b;background:#0b1220;font-size:13px;cursor:pointer}
+#machine-toggle:hover{background:#111a2e}
+#machine-toggle:disabled{opacity:.7;cursor:wait}
+#machine-toggle.m-off{border-color:#f59e0b;background:#3a2a0b}
+#machine-toggle.m-off #machine-label{color:#fde68a}
+#machine-toggle.m-on{border-color:#334155}
+#machine-toggle.m-on #machine-label{color:#a7f3d0}
 </style>
 
 <script>
@@ -256,8 +268,40 @@ document.getElementById('btn-build').addEventListener('click', async ()=>{
 });
 async function imageStatus(){ try{ const r=await api('/api/image'); const t=document.getElementById('health-text'); t.textContent = `podman ok · base image ${r.exists?'ready':'not built'}`; document.getElementById('health-dot').className='w-2.5 h-2.5 rounded-full '+(r.ok??true?'bg-emerald-500':'bg-rose-500'); }catch{} }
 async function health(){ try{ const r=await api('/api/health'); document.getElementById('health-dot').className='w-2.5 h-2.5 rounded-full '+(r.ok?'bg-emerald-500':'bg-rose-500'); document.getElementById('health-text').textContent=r.ok?'podman ready':('podman: '+r.error); document.getElementById('net').textContent=r.network; }catch(e){ showTokenBanner(); } imageStatus(); }
+async function machineStatus(){
+  try{ renderMachine(await api('/api/machine')); }catch(e){ /* keep last known state */ }
+}
+function renderMachine(st){
+  const btn=document.getElementById('machine-toggle');
+  const dot=document.getElementById('machine-dot');
+  const label=document.getElementById('machine-label');
+  const action=document.getElementById('machine-action');
+  btn.classList.remove('m-off','m-on');
+  if(st.starting){
+    dot.className='inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse';
+    label.textContent='podman: starting…'; action.textContent=''; btn.disabled=true;
+  }else if(st.running){
+    dot.className='inline-block w-2.5 h-2.5 rounded-full bg-emerald-500';
+    label.textContent='podman: running'; action.textContent='stop'; btn.disabled=false; btn.classList.add('m-on');
+  }else{
+    dot.className='inline-block w-2.5 h-2.5 rounded-full bg-rose-500';
+    label.textContent='podman: stopped'; action.textContent='start'; btn.disabled=false; btn.classList.add('m-off');
+  }
+}
+async function toggleMachine(){
+  const btn=document.getElementById('machine-toggle');
+  const label=document.getElementById('machine-label');
+  btn.disabled=true;
+  let st; try{ st=await api('/api/machine'); }catch(e){ toast(e.message); btn.disabled=false; return; }
+  const target=st.running?'stop':'start';
+  label.textContent='podman: '+(target==='stop'?'stopping…':'starting…');
+  try{ await api('/api/machine/'+target,{method:'POST'}); }catch(e){ toast(e.message); }
+  machineStatus();
+}
+document.getElementById('machine-toggle').addEventListener('click', toggleMachine);
 document.getElementById('net').textContent = 'podjump-net';
-refresh(); health(); setInterval(refresh, 5000);
+function tick(){ refresh(); machineStatus(); }
+tick(); health(); setInterval(tick, 5000);
 </script>
 </body>
 </html>

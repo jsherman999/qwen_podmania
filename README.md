@@ -29,6 +29,10 @@ applehv) and **Linux**.
 - **Jump flow:** `keygen <jump>` creates `/root/.ssh/id_ed25519` inside the jump
   container; `pushkey <jump> <targets...>` appends the jump's public key to each
   target's `/root/.ssh/authorized_keys` and verifies a passwordless hop.
+- **Master toggle (macOS):** containers run inside a podman *machine* (a small
+  VM). Bring it up or down with `podjump up` / `podjump down`, the power toggle
+  in the web header, or let the bundled launchd agent start it automatically at
+  login. Stopping the machine stops all containers but leaves the web UI up.
 
 ## Install
 
@@ -62,6 +66,9 @@ start/stop, open a live **terminal** (PTY over websocket) or **logs**, run
 
 ```bash
 podjump doctor                       # sanity-check podman + env
+podjump up                           # master ON  — bring the podman machine (VM) up
+podjump down                         # master OFF — stop the podman machine (VM)
+podjump machine                      # show machine (VM) state
 podjump build                        # build the Ubuntu+sshd base image
 podjump create web-1                 # create + start (auto port)
 podjump create db-1 --env FOO=bar --volume /tmp/data:/data -m 512m --port 2030
@@ -84,6 +91,32 @@ podjump rm web-1 -y
 - **Single binary** (optional): `pip install -e .[package]` then
   `pyinstaller --onefile --name podjump --collect-all podjump podjump/cli.py`
   to produce a self-contained executable per OS.
+
+## Run as a service (macOS)
+
+Two bundled launchd agents keep the lab alive across reboots. The labels and
+paths are for this machine (`/Users/jay/podjump`); edit them if you install
+elsewhere:
+
+- `packaging/launchd/com.jay.podjump.plist` — the web UI. `KeepAlive` restarts
+  it if it ever dies.
+- `packaging/launchd/com.jay.podjump-machine.plist` — runs `podjump up` at login
+  so the podman machine (VM) is up after a reboot. It's a one-shot (no
+  `KeepAlive`) and is idempotent, so it's a no-op when the machine is already up.
+
+```bash
+cp packaging/launchd/com.jay.podjump*.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jay.podjump.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.jay.podjump-machine.plist
+```
+
+Manage:
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.jay.podjump    # restart the web UI
+launchctl bootout    gui/$(id -u)/com.jay.podjump      # stop the web UI
+tail -f /Users/jay/podjump/logs/podjump-web.log        # watch logs
+```
 
 ## Security notes
 

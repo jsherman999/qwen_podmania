@@ -36,6 +36,43 @@ def ensure_network(name: str = core.DEFAULT_NETWORK) -> str:
     return name
 
 
+# --- podman machine (the VM that runs the containers on macOS) ----------- #
+def machine_state() -> dict:
+    """State of the default podman machine (the VM)."""
+    data = core.podman_json("machine", "list", "--format", "json") or []
+    if not data:
+        return {
+            "running": False, "starting": False, "name": None,
+            "vm_type": None, "detail": "no podman machine found",
+        }
+    m = next((x for x in data if x.get("Default")), data[0])
+    return {
+        "running": bool(m.get("Running")),
+        "starting": bool(m.get("Starting")),
+        "name": m.get("Name"),
+        "vm_type": m.get("VMType"),
+        "detail": "",
+    }
+
+
+def machine_start() -> dict:
+    """Start the machine (idempotent: no-op if already running/starting)."""
+    st = machine_state()
+    if st["running"] or st["starting"]:
+        return st
+    core.podman("machine", "start", timeout=300)
+    return machine_state()
+
+
+def machine_stop() -> dict:
+    """Stop the machine (idempotent: no-op if already stopped)."""
+    st = machine_state()
+    if not st["running"]:
+        return st
+    core.podman("machine", "stop", timeout=300)
+    return machine_state()
+
+
 def container_exists(name: str) -> bool:
     out = core.podman("ps", "-aq", "--filter", f"name=^{name}$").strip()
     return bool(out)

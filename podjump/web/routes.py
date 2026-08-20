@@ -94,6 +94,21 @@ def create_app() -> FastAPI:
         _auth(tok)
         return {"image": _wrap(drv.build_base_image)}
 
+    @app.get("/api/machine")
+    def api_machine(tok: Optional[str] = Query(None)):
+        _auth(tok)
+        return _wrap(srv.machine)
+
+    @app.post("/api/machine/start")
+    def api_machine_start(tok: Optional[str] = Query(None)):
+        _auth(tok)
+        return _wrap(srv.machine_up)
+
+    @app.post("/api/machine/stop")
+    def api_machine_stop(tok: Optional[str] = Query(None)):
+        _auth(tok)
+        return _wrap(srv.machine_down)
+
     @app.get("/api/servers")
     def api_list(tok: Optional[str] = Query(None)):
         _auth(tok)

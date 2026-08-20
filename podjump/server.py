@@ -182,6 +182,22 @@ def logs(name: str, lines: int = 200) -> str:
     return drv.logs(name, lines)
 
 
+# --- master toggle: the podman machine (VM) ------------------------------ #
+def machine() -> dict:
+    """Return the podman machine (VM) state."""
+    return drv.machine_state()
+
+
+def machine_up() -> dict:
+    """Master ON: ensure the podman machine is running."""
+    return drv.machine_start()
+
+
+def machine_down() -> dict:
+    """Master OFF: stop the podman machine."""
+    return drv.machine_stop()
+
+
 def _running(name: str) -> None:
     if drv.container_state(name) != "running":
         raise core.PodmanError(f"server '{name}' is not running (state: {drv.container_state(name)})")

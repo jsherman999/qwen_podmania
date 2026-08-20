@@ -41,6 +41,12 @@ def doctor() -> None:
         typer.echo("platform: linux (native podman)")
     else:
         typer.echo("platform: non-linux (expects a `podman machine` VM)")
+        try:
+            m = drv.machine_state()
+            mstate = "running" if m["running"] else ("starting" if m["starting"] else "stopped")
+            typer.echo(f"machine       : {m.get('name') or '?'}  [{mstate}]")
+        except core.PodmanError:
+            typer.echo("machine       : (could not query)")
     typer.echo(f"default image : {core.DEFAULT_BASE_IMAGE}")
     typer.echo(f"image present : {drv.image_exists(core.DEFAULT_BASE_IMAGE)}")
     typer.echo(f"network       : {core.DEFAULT_NETWORK}")
@@ -202,6 +208,44 @@ def logs(name: str = typer.Argument(...), lines: int = typer.Option(200, "--line
     except core.PodmanError as exc:
         _fail(exc)
     typer.echo(out.rstrip() or "(no logs)")
+
+
+@app.command()
+def up() -> None:
+    """Master ON: bring the podman machine (VM) up. The web UI runs via launchd."""
+    try:
+        st = srv.machine_up()
+    except core.PodmanError as exc:
+        _fail(exc)
+    if st.get("running"):
+        typer.secho(f"podman machine '{st.get('name')}' is running", fg=typer.colors.GREEN)
+    elif st.get("starting"):
+        typer.echo(f"podman machine '{st.get('name')}' is starting…")
+    else:
+        _fail(f"podman machine did not come up: {st.get('detail') or 'unknown state'}")
+
+
+@app.command()
+def down() -> None:
+    """Master OFF: stop the podman machine (containers stop; the web UI keeps running)."""
+    try:
+        st = srv.machine_down()
+    except core.PodmanError as exc:
+        _fail(exc)
+    typer.secho(f"podman machine '{st.get('name')}' stopped", fg=typer.colors.YELLOW)
+
+
+@app.command()
+def machine() -> None:
+    """Show the podman machine (VM) state."""
+    try:
+        st = srv.machine()
+    except core.PodmanError as exc:
+        _fail(exc)
+    state = "running" if st.get("running") else ("starting" if st.get("starting") else "stopped")
+    typer.echo(f"machine : {st.get('name') or '?'}  [{state}]  (vm: {st.get('vm_type') or '?'})")
+    if st.get("detail"):
+        typer.echo(f"detail  : {st['detail']}")
 
 
 @app.command()
